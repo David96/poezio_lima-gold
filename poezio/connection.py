@@ -166,6 +166,7 @@ class Connection(slixmpp.ClientXMPP):
         self.register_plugin('xep_0319')
         self.register_plugin('xep_0334')
         self.register_plugin('xep_0352')
+        self.register_plugin('encrypt-im')
         self.init_plugins()
 
     def set_keepalive_values(self, option=None, value=None):

@@ -24,6 +24,12 @@ from io import BytesIO
 from xml import sax
 from xml.sax import saxutils
 
+from Crypto.Cipher import AES
+from Crypto import Random
+import base64
+
+import encryptim
+
 digits = '0123456789' # never trust the modules
 
 XHTML_NS = 'http://www.w3.org/1999/xhtml'
@@ -188,22 +194,57 @@ poezio_format_trim = re.compile(r'(\x19\d+}|\x19\d|\x19[buaio]|\x19o)+\x19o')
 
 xhtml_simple_attr_re = re.compile(r'\x19\d')
 
+encryptim.register()
+
+def get_message_enc_type(message):
+    if len(message["encrypted"]["content"]) != 0:
+        return "stealth"
+    elif message["html"].find(".//{http://www.w3.org/1999/xhtml}span[@data]") is not None:
+        return "gold"
+    return ""
+
+def decode(msg, key):
+    raw = base64.b64decode(msg)
+    iv = raw[0:AES.block_size]
+    msg = raw[AES.block_size:]
+    aes = AES.new(key, AES.MODE_CBC, iv)
+    data = aes.decrypt(msg)
+    return data[:-data[-1]].decode('utf-8')
+
 def get_body_from_message_stanza(message, use_xhtml=False,
-                                 tmp_dir=None, extract_images=False):
+                                 tmp_dir=None, extract_images=False,
+                                 key=None):
     """
     Returns a string with xhtml markups converted to
     poezio colors if there's an xhtml_im element, or
     the body (without any color) otherwise
     """
-    if use_xhtml:
-        xhtml = message['html'].xml
-        xhtml_body = xhtml.find('{http://www.w3.org/1999/xhtml}body')
-        if xhtml_body:
-            content = xhtml_to_poezio_colors(xhtml_body, tmp_dir=tmp_dir,
-                                             extract_images=extract_images)
-            content = content if content else message['body']
-            return content or " "
-    return message['body']
+    body = message["body"]
+    enc_type = get_message_enc_type(message)
+
+    if enc_type == "stealth":
+        if key is None:
+            return
+        data = message["encrypted"]["content"]
+        try:
+            body = decode(data, key)
+        except Exception as e:
+            # Do something!
+            pass
+
+    xhtml = message['html'].xml
+    xhtml_body = xhtml.find('{http://www.w3.org/1999/xhtml}body')
+
+    if key is not None and enc_type == "gold":
+        span = xhtml.find('.//{http://www.w3.org/1999/xhtml}span[@data]')
+        data = span.attrib.get('data')
+        body = decode(data, key)
+    elif use_xhtml and xhtml_body:
+        content = xhtml_to_poezio_colors(xhtml_body, tmp_dir=tmp_dir,
+                                         extract_images=extract_images)
+        content = content if content else message['body']
+        return content or " "
+    return body
 
 def ncurses_color_to_html(color):
     """

@@ -70,6 +70,14 @@ class HandlerCore:
         self.core.xmpp.plugin['xep_0030'].get_info(jid=self.core.xmpp.boundjid.domain,
                                                    callback=callback)
 
+        self.key = config.get('key')
+        if self.key:
+            self.key = self.key.encode('utf-8')
+
+            # apply padding
+            length = 32 - (len(self.key) % 32)
+            self.key += bytes([length]) * length
+
     def on_carbon_received(self, message):
         """
         Carbon <received/> received
@@ -505,9 +513,16 @@ class HandlerCore:
         extract_images = config.get('extract_inline_images')
         body = xhtml.get_body_from_message_stanza(message, use_xhtml=use_xhtml,
                                                   tmp_dir=tmp_dir,
-                                                  extract_images=extract_images)
+                                                  extract_images=extract_images,
+                                                  key=self.key)
         if not body:
             return
+
+        enc_type = xhtml.get_message_enc_type(message)
+        if enc_type == "stealth":
+            nick_from = "%s $" % nick_from
+        elif enc_type == "gold":
+            nick_from = "%s #" % nick_from
 
         old_state = tab.state
         delayed, date = common.find_delayed_tag(message)
