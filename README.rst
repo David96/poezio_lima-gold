@@ -1,3 +1,6 @@
+This modified version adds support for Lima Gold. Add the key to the config file (section Poezio, key = bla) and don't forget to load the "lima-gold" plugin for support for sending encrypted messages.
+
+
 ::
 
                           _
