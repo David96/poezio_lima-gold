@@ -219,7 +219,6 @@ def get_body_from_message_stanza(message, use_xhtml=False,
     poezio colors if there's an xhtml_im element, or
     the body (without any color) otherwise
     """
-    body = message["body"]
     enc_type = get_message_enc_type(message)
 
     if enc_type == "stealth":
@@ -228,6 +227,10 @@ def get_body_from_message_stanza(message, use_xhtml=False,
         data = message["encrypted"]["content"]
         try:
             body = decode(data, key)
+            if len(body) > 0:
+                return body
+            else:
+                return "** empty stealth message or wrong key **"
         except Exception as e:
             # Do something!
             pass
@@ -238,13 +241,19 @@ def get_body_from_message_stanza(message, use_xhtml=False,
     if key is not None and enc_type == "gold":
         span = xhtml.find('.//{http://www.w3.org/1999/xhtml}span[@data]')
         data = span.attrib.get('data')
-        body = decode(data, key)
-    elif use_xhtml and xhtml_body:
+        try:
+            body = decode(data, key)
+            if len(body) > 0:
+                return body
+        except Exception as e:
+            pass
+
+    if use_xhtml and xhtml_body:
         content = xhtml_to_poezio_colors(xhtml_body, tmp_dir=tmp_dir,
                                          extract_images=extract_images)
         content = content if content else message['body']
         return content or " "
-    return body
+    return message["body"]
 
 def ncurses_color_to_html(color):
     """
